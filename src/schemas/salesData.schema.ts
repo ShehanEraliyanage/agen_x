@@ -1,26 +1,12 @@
-import mongoose, { Document, Model, Schema } from 'mongoose';
+import mongoose, { Document, Schema } from 'mongoose';
 
 export interface ISalesData extends Document {
-  // Adjust fields as needed to match CSV structure
-  product: string;
-  quantity: number;
-  price: number;
-  brand: string; // New field
-  category: string; // New field
-  region: string; // New field
+  data: Array<Record<string, any>>; // Store CSV rows as an array of objects
 }
 
 const salesDataSchema = new Schema<ISalesData>({
-  product: String,
-  quantity: Number,
-  price: Number,
-  brand: String, // New field
-  category: String, // New field
-  region: String, // New field
+  data: [{ type: Map, of: Schema.Types.Mixed }], // Using array notation with Map type
 });
 
-const SalesData = mongoose.model<ISalesData, Model<ISalesData>>(
-  'SalesData',
-  salesDataSchema,
-);
+const SalesData = mongoose.model<ISalesData>('SalesData', salesDataSchema);
 export default SalesData;

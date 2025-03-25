@@ -13,13 +13,12 @@ async function bootstrap() {
   const documentFactory = () => SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, documentFactory);
 
-  mongoose.connect('mongodb://localhost:27017/agent_x', {
+  mongoose.connect('mongodb://localhost:27017/agent_x_new', {
     serverSelectionTimeoutMS: 60000, // Set server selection timeout to 60 seconds
     socketTimeoutMS: 60000, // Set socket timeout to 60 seconds
   });
 
-  const port = process.env.PORT ?? 3000;
-  await app.listen(port);
-  console.log(`Application is running on: http://localhost:${port}`);
+  await app.listen(8070);
+  console.log(`Application is running on: http://localhost:8070`);
 }
 bootstrap();

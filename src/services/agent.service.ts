@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import {
   DefaultAzureCredential,
   getBearerTokenProvider,
@@ -11,23 +12,21 @@ import SalesData from '../schemas/salesData.schema';
 import MarketInsight, {
   IMarketInsight,
 } from '../schemas/marketInsights.schema';
-import Papa from 'papaparse';
+// Import PapaParse library
+import * as Papa from 'papaparse';
 
 @Injectable()
 export class AgentService {
-  private azureOpenAIClient: AzureOpenAI;
+  private readonly openaiClient: AzureOpenAI;
 
-  constructor() {
-    const scope = 'https://cognitiveservices.azure.com/.default';
-    const azureADTokenProvider = getBearerTokenProvider(
-      new DefaultAzureCredential(),
-      scope,
-    );
-
-    this.azureOpenAIClient = new AzureOpenAI({
-      azureADTokenProvider,
-      deployment: process.env.AZURE_OPENAI_DEPLOYMENT_ID,
-      apiVersion: '2024-10-21',
+  constructor(private configService: ConfigService) {
+    this.openaiClient = new AzureOpenAI({
+      apiKey: this.configService.get<string>('AZURE_OPENAI_API_KEY'),
+      endpoint: this.configService.get<string>('AZURE_OPENAI_ENDPOINT'),
+      deployment: this.configService.get<string>('AZURE_OPENAI_DEPLOYMENT_ID'),
+      apiVersion:
+        this.configService.get<string>('OPENAI_API_VERSION') ||
+        '2023-12-01-preview',
     });
 
     mongoose.set('bufferTimeoutMS', 60000); // Set buffer timeout to 60 seconds
@@ -60,10 +59,21 @@ export class AgentService {
   }
 
   async uploadSalesData(file: Express.Multer.File) {
-    const csvContent = file.buffer.toString();
-    const parsed = Papa.parse(csvContent, { header: true });
-    const rows = parsed.data || [];
-    return await SalesData.insertMany(rows);
+    try {
+      const csvContent = file.buffer.toString();
+
+      if (!Papa || typeof Papa.parse !== 'function') {
+        throw new Error('PapaParse library is not properly loaded');
+      }
+
+      const parsed = Papa.parse(csvContent, { header: true });
+      const rows = parsed.data || [];
+      const savedData = await SalesData.create({ data: rows });
+      return { id: savedData._id, message: 'CSV data saved successfully' };
+    } catch (error) {
+      console.error('Error parsing CSV:', error);
+      throw new Error(`Failed to parse CSV: ${error.message}`);
+    }
   }
 
   async analyzeSalesData(): Promise<any> {
@@ -85,10 +95,10 @@ export class AgentService {
   }
 
   async analyzeWithAI(prompt: string): Promise<string> {
-    const events = await this.azureOpenAIClient.chat.completions.create({
+    const events = await this.openaiClient.chat.completions.create({
       messages: [{ role: 'user', content: prompt }],
       max_tokens: 500,
-      model: process.env.AZURE_OPENAI_MODEL,
+      model: this.configService.get<string>('AZURE_OPENAI_MODEL'),
     });
 
     let result = '';
@@ -99,16 +109,24 @@ export class AgentService {
   }
 
   async chatWithAI(
-    messages: Array<{ role: string; content: string; name?: string }>,
+    csvId: string,
+    messages: Array<{ role: string; content: string }>,
   ): Promise<string> {
-    const events = await this.azureOpenAIClient.chat.completions.create({
-      messages: messages.map((message) => ({
-        role: message.role as 'system' | 'user' | 'assistant', // Ensure role matches expected types
-        content: message.content,
-        name: message.name || 'default',
-      })),
+    const salesData = await SalesData.findById(csvId);
+    if (!salesData) {
+      throw new Error('CSV data not found');
+    }
+
+    const contextMessage = {
+      role: 'system',
+      content: `You are an assistant analyzing the following sales data: ${JSON.stringify(salesData.data)}`,
+      name: 'sales_data_analysis', // Added 'name' property to match expected type
+    };
+
+    const events = await this.openaiClient.chat.completions.create({
+      messages: [contextMessage as any, ...messages], // Cast contextMessage to 'any' if strict typing issues persist
       max_tokens: 500,
-      model: process.env.AZURE_OPENAI_MODEL,
+      model: this.configService.get<string>('AZURE_OPENAI_MODEL'),
     });
 
     let result = '';
