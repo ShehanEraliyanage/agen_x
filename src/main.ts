@@ -5,6 +5,19 @@ import * as mongoose from 'mongoose';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Enable CORS with specific configuration
+  app.enableCors({
+    origin: '*', // Allow requests from any origin (for development)
+    // For production, specify exact origins:
+    // origin: ['https://your-frontend-domain.com', 'http://localhost:4200'],
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: 'Origin,X-Requested-With,Content-Type,Accept,Authorization',
+    credentials: true, // Allow cookies to be sent with requests
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
+  });
+
   const config = new DocumentBuilder()
     .setTitle('Agent X API')
     .setDescription('The Agent X API description')
