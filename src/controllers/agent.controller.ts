@@ -90,4 +90,62 @@ export class AgentController {
 
     return this.agentService.uploadSalesData(file);
   }
+
+  @Get('sales-analysis')
+  async analyzeSalesData() {
+    return this.agentService.analyzeSalesData();
+  }
+
+  @Post('market-insight')
+  async createMarketInsight(
+    @Body()
+    body: {
+      trend: string;
+      sentiment: string;
+      competitorActivity: string;
+    },
+  ) {
+    const { trend, sentiment, competitorActivity } = body;
+    return this.agentService.createMarketInsight(
+      trend,
+      sentiment,
+      competitorActivity,
+    );
+  }
+
+  @Get('market-insights')
+  async getMarketInsights() {
+    return this.agentService.getMarketInsights();
+  }
+
+  @Post('analyze-with-ai')
+  async analyzeWithAI(@Body() body: { prompt: string }) {
+    const { prompt } = body;
+    return this.agentService.analyzeWithAI(prompt);
+  }
+
+  @Post('chat-with-ai')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        messages: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              role: { type: 'string' },
+              content: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
+  })
+  async chatWithAI(
+    @Body() body: { messages: Array<{ role: string; content: string }> },
+  ) {
+    const { messages } = body;
+    return this.agentService.chatWithAI(messages);
+  }
 }
